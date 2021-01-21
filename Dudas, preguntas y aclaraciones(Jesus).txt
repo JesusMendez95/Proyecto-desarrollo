@@ -1,2 +1,3 @@
 *Tengo la duda de si es válido traducir las noticias a ingles para correr analizador de sentimientos. (Vader, Textblob), puesto que sus diccionarios son de palabras en inglés.
 
+*El algoritmo de aprendizaje que quiero usar es el GRU (red neuronal recurrente), aunque no he terminado de entender como funciona.
