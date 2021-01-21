@@ -1,0 +1,2 @@
+*Tengo la duda de si es válido traducir las noticias a ingles para correr analizador de sentimientos. (Vader, Textblob), puesto que sus diccionarios son de palabras en inglés.
+
