@@ -1,3 +1,12 @@
 *Tengo la duda de si es válido traducir las noticias a ingles para correr analizador de sentimientos. (Vader, Textblob), puesto que sus diccionarios son de palabras en inglés.
 
-*El algoritmo de aprendizaje que quiero usar es el GRU (red neuronal recurrente), aunque no he terminado de entender como funciona.
+*He estado avanzando en la construcción del modelo ARIMA (2013-2019), pero obtengo o un modelo ARIMA(0,0,0) o ARIMA(5,2,0) y este úlltimo es solo una recta de regresión decreciente
+
+*Ya tengo datasets de datos financieros y noticias de Bancolombia, Ecopetrol y COLCAP
+
+*Los diccionarios encontrados estan en inglés (LoughranMcDonald, Harvard IV, Senticnet 6.0, SentiWordNet3.0)
+
+
+*Tengo la duda de como se puede comparar un modelo ARIMA con un modelo que de clasificación binaria
+
+*No entiendo en el plan de entregas Semana 2 "Incluir al menos una gráfica del resultado final)"
