@@ -1,9 +1,13 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 import datetime
 import unidecode
 import re
 from textblob import TextBlob
-from wordcloud import WordCloud
+from wordcloud import WordCloud, STOPWORDS
+from nltk.corpus import stopwords
+import nltk
+
 from sklearn.feature_extraction.text import CountVectorizer
 from nltk import word_tokenize
 from nltk.stem import PorterStemmer
@@ -12,10 +16,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 
-
 noticias_esp = pd.read_excel('larepublica raw data.xlsx')
 
 noticias_esp = noticias_esp.dropna()  # Eliminar filas vacias
+
 noticias_esp = noticias_esp.drop_duplicates()  # Eliminar duplicados
 
 noticias_esp['Noticia'] = noticias_esp['Title'] + '. ' + noticias_esp[
@@ -66,33 +70,27 @@ def ajustar_fecha(date):
     return fecha_corregida
 
 
+noticias_esp = noticias_esp.reset_index(drop=True)
+
 fechas = pd.Series(map(ajustar_fecha, noticias_esp['Fecha']))  # Convertir el iterable map a una serie de pandas
 noticias_esp['Fecha'] = fechas  # llevar al DataFrame los datos de fecha modificados
-
+noticias_esp = noticias_esp.set_index('Fecha')
 # Editando la columna Noticia
 
 # Limpieza con el texto traducido al ingles
-test_text = noticias_esp['Noticia']
 
-
-def eliminar_espacios(texto):
-    pattern = re.compile(r'\s+')
-    texto_sin_espacios = re.sub(pattern, ' ', texto)
-    return texto_sin_espacios
-
-
-t = pd.Series(map(eliminar_espacios, test_text))
 
 "t.to_excel('noticias larepublica.xlsx', encoding='utf-8')"
 
-noticias_columna_ing = pd.read_excel("noticias larepublica.xlsx", sheet_name='english', header=None)
+noticias_ing = pd.read_excel("noticias larepublica.xlsx", sheet_name='english', header=None)
+noticias_ing.columns = ['Noticia']
 
-noticias_ing = pd.DataFrame(noticias_esp['Fecha'])
-noticias_ing['Noticias'] = noticias_columna_ing
+noticias_ing['Fecha'] = noticias_esp.index
+noticias_ing = noticias_ing.set_index('Fecha')
 
 
 def limpieza_general(texto):
-    texto = texto.lower()  # Establecer todo como minuscula
+    texto = texto.lower()  # Establecer 
 
     texto = re.sub(r'\s+', ' ', texto)  # Quitar espacios y entre lineas
 
@@ -102,8 +100,181 @@ def limpieza_general(texto):
 
     texto = unidecode.unidecode(texto)  # Eliminar diacriticos y ñs
 
-def tokenizacion_unigrams(texto):
+    return texto
 
 
-def tokenizacion_bigrams(texto):
+noticias_ing_pp = noticias_ing.copy()
 
+noticias_ing_pp['Noticia'] = [limpieza_general(noticia) for noticia in noticias_ing.Noticia]
+
+noticias_esp_pp = noticias_esp.copy()
+
+noticias_esp_pp['Noticia'] = [limpieza_general(noticia) for noticia in noticias_esp.Noticia]
+
+# Wordcloud
+
+corpus_list = [noticia for noticia in noticias_esp_pp['Noticia']]
+corpus_str = ' '.join(corpus_list)
+text_cloud = WordCloud(width=2000, height=1000, background_color='white', stopwords=stopwords.words('spanish')).generate(corpus_str)
+plt.figure( figsize=(20,10) )
+text_cloud.to_file('wordcloud1.png')
+plt.axis("off")
+plt.imshow(text_cloud, interpolation='bilinear')
+plt.show()
+plt.savefig('wordcloud.png', format='png')
+# VADER
+
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+text = 'ecopetrol lost the first place as the most valuable company in latin america the colombian oil company was displaced from the top position by the brazilian brewer ambev in the list by market value of latin american companies in  according to a study by the economatica consultancy the value of ambev according to the consulting company was us   billion followed by ecopetrol with us   billion the third position was occupied by the brazilian oil company petrobras with us   billion the brazilian mining company vale was in fourth place with us   million according to the report that was made based on the price of the shares of the companies in the different exchanges that are listed america movil from mexico was the fifth most valuable company in latin america it is followed by itauunibanco and bradesco wal mart de mexico banco de brasil and femsa'
+
+text_tokenized = word_tokenize(text)
+stopwords = stopwords.words('english')
+text_filtered = [word for word in text_tokenized if word not in stopwords]
+text_filtered = ' '.join(text_filtered)
+new_sentiment = SentimentIntensityAnalyzer()
+
+noticias_ing_pp['polarity_vader'] = [new_sentiment.polarity_scores(new)['compound'] for new in noticias_ing_pp['Noticia']]
+
+# SenticNet 6.0
+
+
+from nltk import word_tokenize
+from nltk import bigrams
+import senticnet6_polarity
+from senticnet.senticnet6 import senticnet
+
+sentiment_words = {}
+def polarity(list_of_words, dictionary):
+
+    pos = 0
+    neg = 0
+    poslist = []
+    neglist = []
+
+    for word in list_of_words:
+        try:
+            if float(dictionary[word][7]) > 0:
+                pos += 1
+                poslist.append(word)
+                if word not in sentiment_words:
+                    sentiment_words.update({word:1})
+                else: sentiment_words.update({word:sentiment_words[word]+ 1})
+            elif float(dictionary[word][7]) < 0:
+                neg += 1
+                neglist.append(word)
+                if word not in sentiment_words:
+                    sentiment_words.update({word: 1})
+                else:
+                    sentiment_words.update({word: sentiment_words[word] + 1})
+        except  KeyError:
+            continue
+    if pos + neg != 0:
+        pol = (pos - neg) / (pos + neg)
+    else:
+        pol = 0
+
+    return [pol, [pos, neg], [poslist, neglist]]
+
+
+# def polarity_polarity(list_of_words, dictionary):
+#     pos = 0
+#     neg = 0
+#     poslist = []
+#     neglist = []
+#
+#     for word in list_of_words:
+#         try:
+#             if float(dictionary[word][7]) > 0:
+#                 pos += float(dictionary[word][7])
+#                 poslist.append(word)
+#
+#             elif float(dictionary[word][7]) < 0:
+#                 neg += float(dictionary[word][7])
+#                 neglist.append(word)
+#
+#
+#         except  KeyError:
+#             continue
+#
+#     return [[pos + neg], [poslist, neglist]]
+#
+
+def bigrams_(text):
+    tokens = word_tokenize(text)
+    bi_grams = ['_'.join(i) for i in list(bigrams(tokens))]
+    return bi_grams
+
+
+# noticias_ing_pp_t_bg = noticias_ing_pp.copy()
+# noticias_ing_pp_t_bg['Noticia'] = [bigrams_(new) for new in noticias_ing_pp_t_bg.Noticia]
+# noticias_ing_pp_t_bg['polarity_label'] = [polarity(new, senti
+# cnet) for new in noticias_ing_pp_t_bg.Noticia]
+# noticias_ing_pp_t_bg['polarity_value'] = [polarity_polarity(new, senticnet) for new in noticias_ing_pp_t_bg.Noticia]
+
+noticias_ing_pp_t = noticias_ing_pp.copy()
+stopwords = ['oil','production','crude','sector','energy','gas','pipeline','refinery','petroleum','dollar','infrastructure','water','hydrocarbon','latin','stocks','gasoline','exploitation']
+noticias_ing_pp_t['Noticia'] = [new.split() for new in noticias_ing_pp_t.Noticia]
+noticias_ing_pp_t['Noticia'] = noticias_ing_pp_t['Noticia'].apply(lambda x: [word for word in x if word not in stopwords])
+noticias_ing_pp_t['polarity_senticnet'] = [polarity(new, senticnet)[0] for new in noticias_ing_pp_t.Noticia]
+
+a = dict(sorted(sentiment_words.items(), key=lambda x: x[1], reverse=True))
+
+# noticias_ing_pp_t['polarity_value'] = [polarity_polarity(new, senticnet) for new in noticias_ing_pp_t.Noticia]
+
+# sample0 = [[0, 0], [[], []]]
+#
+# sample2 = [[1, 0], [['merger_agreement'], []]]
+# sample1 = [[14, 4], [['oil', 'announced', 'decision', 'merge', 'board', 'decision', 'board', 'agreement', 'registered', 'absorbing', 'registration', 'registrar', 'registrar', 'competent'], ['superintendency', 'caiman', 'cayman', 'cayman']]]
+#
+#
+# def merge(text1, text2):
+#
+#    if text2[0][0]  != 0:
+#        text3 = [term.split('_')for term in text2[1][0]]
+
+
+# Loughram and McDonald
+
+lm_dic_neg = pd.read_excel('LoughranMcDonald_SentimentWordLists_2018.xlsx', sheet_name='Negative', header=None)
+lm_dic_pos = pd.read_excel('LoughranMcDonald_SentimentWordLists_2018.xlsx', sheet_name='Positive', header=None)
+
+
+def lm(dic_pos, dic_neg):
+    lm_dic = {str(key).lower(): -1 for key in dic_neg}
+    lm_dic.update({str(key).lower(): 1 for key in dic_pos})
+
+    return lm_dic
+
+
+def lm_polarity(new, lm_dic):
+    pos = 0
+    neg = 0
+    poslist = []
+    neglist = []
+
+    for token in new:
+        try:
+            if lm_dic[token] > 0:
+                pos += 1
+                poslist.append(token)
+            elif lm_dic[token] < 0:
+                neg += 1
+                neglist.append(token)
+
+        except  KeyError:
+            continue
+
+    if pos + neg != 0:
+        pol = (pos - neg) / (pos + neg)
+    else:
+        pol = 0
+
+    return [pol, [pos, neg], [poslist, neglist]]
+
+
+lm_dic = lm(lm_dic_pos.iloc[:, 0], lm_dic_neg.iloc[:, 0])
+
+noticias_ing_pp_t['polarity_lm'] = [lm_polarity(new, lm_dic)[0] for new in noticias_ing_pp_t['Noticia']]
