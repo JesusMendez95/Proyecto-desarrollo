@@ -3,6 +3,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import datetime as dt
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima_model import ARIMA
 from pandas.plotting import autocorrelation_plot
@@ -12,89 +13,137 @@ from pmdarima import model_selection
 import pmdarima as pm
 import technical_indicators_lib
 import seaborn as sns
+
 pd.set_option('display.max_rows', 1000)
 pd.set_option('display.max_columns',
               1000)  # Setup para ampliar visualización de datos (en este caso DataFrame) en el IDE
 pd.set_option('display.width', 1000)
+ecopetrol_df = pd.read_excel('Ecopetrol 2013-2019 raw data.xls')
+bancolombia_df = pd.read_excel('Bancolombia 2013-2019 raw data.xls')
+colcap_df = pd.read_csv(
+    "Icolcap 2013-2019 raw data.csv")  # Importar datos financieros como Dataframe, (previamente convertidos de
 
-ecopetrol_df = pd.read_excel("Ecopetrol 2013-2019 raw data.xls")  # Importar datos financieros como Dataframe, (previamente convertidos de
+
 # Formato xls a csv) usando pandas
 
+def serie_financiera(stock_df):
+    stock_df['Precio Apertura'] = stock_df['Precio Cierre'] - stock_df['Variacion Absoluta']
+    # Se calcula el valor "Open" de la accion
 
-ecopetrol_df['Precio Apertura'] = ecopetrol_df['Precio Cierre'] - ecopetrol_df['Variacion Absoluta']
-# Se calcula el valor "Open" de la accion
+    columns_fixed = ['fecha', 'Precio Apertura', 'Precio Mayor', 'Precio Menor', 'Precio Cierre', 'Volumen']
+    stock_df = stock_df[columns_fixed]
 
+    stock_df.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+    # Orden de las columnas de datos, según formato requerido
 
-columns_fixed = ['fecha', 'Precio Apertura', 'Precio Mayor', 'Precio Menor', 'Precio Cierre', 'Volumen']
-ecopetrol_df = ecopetrol_df[columns_fixed]
+    high_list = []
+    low_list = []
+    for index, row in stock_df.iterrows():
+        if row['open'] > row['high']:
+            high_list.append(row.open)
+        else:
+            high_list.append(row.high)
+        if row['open'] < row['low']:
+            low_list.append(row.open)
+        else:
+            low_list.append(row.low)
 
-ecopetrol_df.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
-# Orden de las columnas de datos, según formato requerido
+    stock_df['high'] = high_list
+    stock_df['low'] = low_list
 
-high_list = []
-low_list = []
-for index, row in ecopetrol_df.iterrows():
-    if row['open'] > row['high']:
-        high_list.append(row.open)
-    else: high_list.append(row.high)
-    if row['open'] < row['low']:
-        low_list.append(row.open)
-    else: low_list.append(row.low)
+    # stock_df['date'] = stock_df['date'].apply(lambda x: dt.datetime.strptime(x,'%Y-%m-%d'))
 
-ecopetrol_df['high'] = high_list
-ecopetrol_df['low'] = low_list
+    def df_to_float(df):
+        for i in range(len(df.columns)):
+            if i == 0:
+                continue
+            df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], downcast='float')
 
-ecopetrol_df['date'] = pd.to_datetime(ecopetrol_df['date'], '%Y-%m-%d')
+    df_to_float(stock_df)
 
+    stock_df = stock_df.set_index('date')
 
-def df_to_float(df):
-    for i in range(len(df.columns)):
-        if i == 0:
-            continue
-        df.iloc[:, i] = pd.to_numeric(df.iloc[:, i], downcast='float')
+    # stock_df_xlsx = stock_df.to_excel('Icolcap OHLCV.xlsx', encoding='utf-8')
+    # Conversión y guardado de los datos en disco
+    high_list = []
+    low_list = []
 
-
-df_to_float(ecopetrol_df)
-
-ecopetrol_df = ecopetrol_df.set_index('date')
-
-ecopetrol_df_xlsx = ecopetrol_df.to_excel('Ecopetrol OHLCV.xlsx', encoding='utf-8')
-# Conversión y guardado de los datos en disco
-
-
-
-
-
+    return stock_df
 
 
+ecopetrol_df = serie_financiera(ecopetrol_df)
+bancolombia_df = serie_financiera(bancolombia_df)
+colcap_df = serie_financiera(colcap_df)
 
-
-
-print(ecopetrol_df.head())
-
+ecopetrol_df_indicadores = pd.read_excel('Ecopetrol OHLCV+indicadores.xlsx', index_col='date')
+bancolombia_df_indicadores = pd.read_excel('Bancolombia OHLCV+indicadores.xlsx', index_col='date')
+icolcap_df_indicadores = pd.read_excel('Icolcap OHLCV+indicadores.xlsx', index_col='date')
 
 # Graficar serie
-import seaborn as sns
+
+
 sns.set_style("whitegrid")
+labels = ['ECOPETROL', 'BANCOLOMBIA', 'ICOLCAP']
 
-plt.plot(ecopetrol_df.index, ecopetrol_df.close)
+fig, ax = plt.subplots(3, 1)
+ax[0].plot(ecopetrol_df_indicadores.close, color='green', label='ECOPETROL')
+ax[0].set_ylabel('Precio (COP)', fontweight='bold')
+ax[0].legend(loc='lower right')
+ax[0].vlines(pd.Timestamp('2016-01-01'), ecopetrol_df_indicadores.close.min(), ecopetrol_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
+ax[0].vlines(pd.Timestamp('2017-11-03'), ecopetrol_df_indicadores.close.min(), ecopetrol_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
 
-plt.title('Precio de la acción de ECOPETROL atraves del tiempo')
-plt.xlabel('Año')
-plt.ylabel('Precio (COP)')
-plt.vlines(pd.Timestamp('2016-01-01'),0, ecopetrol_df.close.max(), linestyle='dashed', color='red', alpha=0.5)
-plt.vlines(pd.Timestamp('2017-10-01'),0, ecopetrol_df.close.max(), linestyle='dashed', color='red', alpha=0.5)
+ax[1].plot(bancolombia_df_indicadores.close, color='blue', label='BANCOLOMBIA')
+ax[1].set_ylabel('Precio (COP)', fontweight='bold')
+ax[1].legend(loc='lower right')
+ax[1].vlines(pd.Timestamp('2016-01-01'), bancolombia_df_indicadores.close.min(), bancolombia_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
+ax[1].vlines(pd.Timestamp('2017-11-03'), bancolombia_df_indicadores.close.min(), bancolombia_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
+ax[2].plot(icolcap_df_indicadores.close, color='red', label='ICOLCAP')
+ax[2].vlines(pd.Timestamp('2016-01-01'), icolcap_df_indicadores.close.min(), icolcap_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
+ax[2].vlines(pd.Timestamp('2017-11-03'), icolcap_df_indicadores.close.min(), icolcap_df_indicadores.close.max(),
+             linestyle='dashed', color='black', alpha=.5)
+ax[2].set_ylabel('Precio (COP)', fontweight='bold')
+ax[2].set_xlabel('Año', fontweight='bold')
+ax[2].legend(loc='lower right')
 
+fig.suptitle('Precio de las acciones a través del tiempo', fontweight='bold')
 plt.show()
+ss_columns = ['Media', 'Desviación Estandar', 'Media', 'Desviación Estandar', 'Media', 'Desviación Estandar']
+ss2_columns = ['Precio de Cierre', 'Delta Precio Mayor y Menor', 'Volumen']
+ss_index = [['Ecopetrol', 'Ecopetrol', 'Bancolombia', 'Bancolombia', 'ICOLCAP', 'ICOLCAP'],
+            ['Media', 'Desviación Estandar', 'Media', 'Desviación Estandar', 'Media', 'Desviación Estandar']]
+tuplas = list(zip(*ss_index))
+index = pd.MultiIndex.from_tuples(tuplas, names=['Acción', 'Estadistico'])
 
-import seaborn as sns
-sns.set_style("whitegrid")
+rng = np.random.default_rng(0)
+example = rng.random((6, 3))
+eco_precio_mean = ecopetrol_df_indicadores.close.mean()
 
-plt.plot(ecopetrol_df.index, ecopetrol_df.close)
 
-plt.title('Precio de la acción de ECOPETROL atraves del tiempo')
-plt.xlabel('Año')
-plt.ylabel('Precio (COP)')
+def ajuste_df(df):
+    df_adjusted = pd.DataFrame()
+    df_adjusted['Precio de Cierre'] = df.close
+    df_adjusted['Delta alto-bajo'] = df.high - df.low
+    df_adjusted['Volumen'] = df.volume
+    return df_adjusted
+
+
+ajuste_df(ecopetrol_df_indicadores)
+df = pd.DataFrame()
+datos = []
+datos.append()
+
+ss_df = pd.DataFrame(example, columns=ss2_columns, index=index)
+print(ss_df)
+
+# plt.xlabel('Año')
+# plt.ylabel('Precio (COP)')
+# plt.vlines(pd.Timestamp('2016-01-01'), 0, stock_df.close.max(), linestyle='dashed', color='red', alpha=0.5)
+# plt.vlines(pd.Timestamp('2017-10-01'), 0, stock_df.close.max(), linestyle='dashed', color='red', alpha=0.5)
 
 
 # Notas La hipótesis nula de Augmented Dickey-Fuller es que existe una raíz unitaria, con la alternativa de que no
@@ -158,21 +207,3 @@ plt.title('Actual test samples vs. forecasts')
 plt.show()"""
 
 "print(arima.summary())"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
