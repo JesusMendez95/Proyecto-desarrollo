@@ -124,21 +124,102 @@ example = rng.random((6, 3))
 eco_precio_mean = ecopetrol_df_indicadores.close.mean()
 
 
+ecopetrol_df_indicadores = pd.read_excel('Ecopetrol OHLCV+indicadores.xlsx', index_col='date')
+bancolombia_df_indicadores = pd.read_excel('Bancolombia OHLCV+indicadores.xlsx', index_col='date')
+icolcap_df_indicadores = pd.read_excel('Icolcap OHLCV+indicadores.xlsx', index_col='date')
+
+
 def ajuste_df(df):
     df_adjusted = pd.DataFrame()
     df_adjusted['Precio de Cierre'] = df.close
+    df_adjusted['Retorno'] = df.close - df.close.shift(1)
     df_adjusted['Delta alto-bajo'] = df.high - df.low
-    df_adjusted['Volumen'] = df.volume
+    df_adjusted['Volumen'] = df.volume / 1000000
     return df_adjusted
 
 
-ajuste_df(ecopetrol_df_indicadores)
-df = pd.DataFrame()
-datos = []
-datos.append()
+df_ajustado_eco = ajuste_df(ecopetrol_df_indicadores)
+df_ajustado_ban = ajuste_df(bancolombia_df_indicadores)
+df_ajustado_col = ajuste_df(icolcap_df_indicadores)
 
-ss_df = pd.DataFrame(example, columns=ss2_columns, index=index)
-print(ss_df)
+
+def summary_statistics(*dfs):
+    tuplas = [('Precio', 'min'), ('Precio', 'max'), ('Precio', 'media'), ('Precio', 'std'), ('Retorno', 'min'),
+              ('Retorno', 'max'), ('Retorno', 'media'), ('Retorno', 'std'), ('Delta alto-bajo', 'min'),
+              ('Delta alto-bajo', 'max'), ('Delta alto-bajo', 'media'), ('Delta alto-bajo', 'std'), ('Volumen', 'min'),
+              ('Volumen', 'max'), ('Volumen', 'media'), ('Volumen', 'std')]
+    indice = pd.MultiIndex.from_tuples(tuplas, names=['Variable', 'Estadistico'])
+    columnas = ['Ecopetrol', 'Bancolombia', 'Icolcap']
+    rng = np.random.default_rng(0)
+    dummy_array = rng.random((16, 3))
+    df_ss = pd.DataFrame(data=dummy_array, index=indice, columns=columnas)
+    index_count = 0
+    for df in dfs:
+
+        df_ss[columnas[index_count]] = [df['Precio de Cierre'].min(), df['Precio de Cierre'].max(),
+                                        df['Precio de Cierre'].mean(), df['Precio de Cierre'].std(),
+                                        df['Retorno'].min(), df['Retorno'].max(), df['Retorno'].mean(),
+                                        df['Retorno'].std(),
+                                        df['Delta alto-bajo'].min(), df['Delta alto-bajo'].max(),
+                                        df['Delta alto-bajo'].mean(), df['Delta alto-bajo'].std(), df['Volumen'].min(),
+                                        df['Volumen'].max(), df['Volumen'].mean(), df['Volumen'].std()]
+        index_count += 1
+    return df_ss
+
+
+df_master = summary_statistics(df_ajustado_eco, df_ajustado_ban, df_ajustado_col)
+df_ajustado_eco = df_ajustado_eco.dropna()
+df_ajustado_col = df_ajustado_col.dropna()
+df_ajustado_ban = df_ajustado_ban.dropna()
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+sns.set_style('darkgrid')
+# fig, ax = plt.subplots(1,3)
+# ax[0].boxplot(df_ajustado_eco['Precio de Cierre'])
+# ax[0].set_xlabel('Ecopetrol')
+# ax[1].boxplot(df_ajustado_ban['Precio de Cierre'], showfliers=False)
+# ax[1].set_xlabel('Bancolombia')
+# ax[2].boxplot(df_ajustado_col['Precio de Cierre'])
+# ax[2].set_xlabel('Icolcap')
+# fig, ax = plt.subplots(1,3)
+# ax[0].boxplot(df_ajustado_eco['Volumen'])
+# ax[0].set_xlabel('Ecopetrol')
+# ax[1].boxplot(df_ajustado_ban['Volumen'])
+# ax[1].set_xlabel('Bancolombia')
+# ax[2].boxplot(df_ajustado_col['Volumen'])
+# ax[2].set_xlabel('Icolcap')
+#
+# plt.hist(df_ajustado_col['Volumen'], bins= 30, color='yellow', alpha=0.3)
+# plt.hist(df_ajustado_eco['Volumen'], bins= 30, color='red', alpha= 0.3)
+# plt.hist(df_ajustado_ban['Volumen'], bins= 15, color='blue', alpha= 0.3)
+# plt.show()
+# # data_list = [df_ajustado_eco['Precio de Cierre'], df_ajustado_ban['Precio de Cierre'], df_ajustado_col['Precio de Cierre']]
+# plt.boxplot(df_ajustado_eco['Precio de Cierre'])
+# plt.boxplot(df_ajustado_ban['Precio de Cierre'])
+# plt.show()
+# import xlsxwriter
+# import xlwt
+# writer = pd.ExcelWriter('summary_statistics.xlsx', engine='xlsxwriter')
+# vol_ss = pd.DataFrame([df_ajustado_eco['Volumen'].describe(),df_ajustado_ban['Volumen'].describe(), df_ajustado_col['Volumen'].describe()],index=['Ecopetrol', 'Bancolombia', 'Icolcap'])
+# vol_ss_t= vol_ss.T
+# vol_ss_t.to_excel(writer, sheet_name='Volumen')
+#
+# price_ss = pd.DataFrame([df_ajustado_eco['Precio de Cierre'].describe(),df_ajustado_ban['Precio de Cierre'].describe(), df_ajustado_col['Precio de Cierre'].describe()],index=['Ecopetrol', 'Bancolombia', 'Icolcap'])
+# price_ss_t= price_ss.T
+# price_ss_t.to_excel(writer, sheet_name='Precio de Cierre')
+# return_ss = pd.DataFrame([df_ajustado_eco['Retorno'].describe(),df_ajustado_ban['Retorno'].describe(), df_ajustado_col['Retorno'].describe()],index=['Ecopetrol', 'Bancolombia', 'Icolcap'])
+# return_ss_t= return_ss.T
+#
+# return_ss_t.to_excel(writer, sheet_name='Retorno')
+# delta_ss = pd.DataFrame([df_ajustado_eco['Delta alto-bajo'].describe(),df_ajustado_ban['Delta alto-bajo'].describe(), df_ajustado_col['Delta alto-bajo'].describe()],index=['Ecopetrol', 'Bancolombia', 'Icolcap'])
+# delta_ss_t= delta_ss.T
+# delta_ss_t.to_excel(writer, sheet_name='Delta alto-bajo')
+# writer.save()
+#
+
 
 # plt.xlabel('Año')
 # plt.ylabel('Precio (COP)')
@@ -154,6 +235,14 @@ print(ss_df)
 
 # Determinar si la serie es estacionaria
 
+import pandas as pd
+
+df_eco = pd.read_excel('Ecopetrol OHLCV+indicadores.xlsx', index_col='date')
+df_eco_return = df_eco.close - df_eco.close.shift(1)
+df_eco_return = df_eco_return.dropna()
+df_eco_return_sliced = df_eco_return.loc["2016-03-01":"2017-09-01"]
+
+#
 # def test_estacionariedad(serie):
 #     # Metodo gráfico, Medidas estadisticas moviles:
 #     media_movil = serie.rolling(window=10).mean()
@@ -186,24 +275,39 @@ print(ss_df)
 #         print('Se rechaza Ho, hay evidencia significativa de que la serie no tiene raiz unitaria')
 #     else:
 #         print('No se rechaza Ho, hay evidencia significativa de que la serie  tiene raiz unitaria')
-
-
+#
+# test_estacionariedad(df_eco_return_sliced)
 # Diferenciacion
 
 
-"""s_p_cierre_diff1 = serie_p_cierre - serie_p_cierre.shift(1)
-s_p_cierre_diff1 = s_p_cierre_diff1.dropna()
+from pmdarima.arima.utils import ndiffs
+df_sinnas = df_eco.close.dropna()
 
-train, test = model_selection.train_test_split(serie_p_cierre.iloc[0:200,0], train_size=50)
-
-arima = pm.auto_arima(train, trace=True)
+# ndiffs(df_sinnas, test='adf')
+# train, test = model_selection.train_test_split(df_eco_return_sliced, train_size=50)
+#
+# arima = pm.auto_arima(train, trace=True)
 
 
 # Plot actual test vs. forecasts:
-x = np.arange(test.shape[0])
-plt.plot(x, test)
-plt.plot(x, arima.predict(n_periods=test.shape[0]), color='red', alpha=0.5)
-plt.title('Actual test samples vs. forecasts')
-plt.show()"""
+# x = np.arange(test.shape[0])
+# plt.plot(x, test)
+# plt.plot(x, arima.predict(n_periods=test.shape[0]), color='red', alpha=0.5)
+# plt.title('Actual test samples vs. forecasts')
+# plt.show()
+#
+# print(arima.summary())
 
-"print(arima.summary())"
+from statsmodels.tsa.arima_model import ARIMA
+import matplotlib.pyplot as plt
+# ARIMA Model
+model = ARIMA(df_eco_return.iloc[:500], order=(7, 1, 3))
+result = model.fit(disp=0)
+print(result.summary())
+# Actual vs Fitted
+result.plot_predict(
+    start=200,
+    end=600,
+    dynamic=False,
+)
+plt.show()
