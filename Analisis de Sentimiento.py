@@ -9,6 +9,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from senticnet.senticnet6 import senticnet
 from nltk import word_tokenize
 import numpy as np
+import pickle
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.metrics import classification_report
 lm_dic_neg = pd.read_excel('LoughranMcDonald_SentimentWordLists_2018.xlsx', sheet_name='Negative', header=None)
@@ -24,7 +25,7 @@ noticias_writer_titulos = pd.ExcelWriter('noticias larepublica_title.xlsx', engi
 noticias_writer_completo = pd.ExcelWriter('noticias larepublica_completo.xlsx', engine='xlsxwriter')
 instancia_estudio = [True,False] # Si es True el estudio tiene en cuenta los titulares de las noticias, False el texto completo
 
-
+## INSTANCIA DE NOTICIAS UNICAMENTE CON TITULO
 
 for i in range(len(empresas)):
 
@@ -101,13 +102,13 @@ for i in range(len(empresas)):
 
 
     noticias['noticia'] = noticias['noticia'].apply(limpieza_general)
-    s_noticias = pd.Series(data=noticias.iloc[:, 0], index=noticias.index)
-    dic_titles['traducir ' + str(empresas[i])] = s_noticias
+#     s_noticias = pd.Series(data=noticias.iloc[:, 0], index=noticias.index)
+#     dic_titles['traducir ' + str(empresas[i])] = s_noticias
+#
+#     dic_titles['traducir ' + str(empresas[i])].to_excel(noticias_writer_titulos, sheet_name=empresas[i])
+# noticias_writer_titulos.save()
 
-    dic_titles['traducir ' + str(empresas[i])].to_excel(noticias_writer_titulos, sheet_name=empresas[i])
-noticias_writer_titulos.save()
 
-dic_titles = {}
 for i in range(len(empresas)):
 
     clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet', 'sentimiento_lm']
@@ -135,8 +136,8 @@ for i in range(len(empresas)):
             #         sen = 0
             #
             #     return sen
-
-
+            #
+            #
             # dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_t(new) for new in
             #                                                              dic_titles[
             #                                                                  empresas[i] + '_' + clasificadores[
@@ -164,8 +165,8 @@ for i in range(len(empresas)):
             #         pol = 0
             #
             #     return pol
-
-
+            #
+            #
             # dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_v(pol) for pol in
             #                                                              dic_titles[
             #                                                                  empresas[i] + '_' + clasificadores[
@@ -229,21 +230,21 @@ for i in range(len(empresas)):
                 dic_titles[empresas[i] + '_' + clasificadores[j]]]
 
 
-            def sentimiento_s(polaridad):
-                if polaridad > 0.35:
-                    pol = 1
-                elif polaridad < 0.20:
-                    pol = -1
-                else:
-                    pol = 0
-
-                return pol
-
-
-            dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_s(pol) for pol in
-                                                                         dic_titles[
-                                                                             empresas[i] + '_' + clasificadores[
-                                                                                 j]]]
+            # def sentimiento_s(polaridad):
+            #     if polaridad > 0.35:
+            #         pol = 1
+            #     elif polaridad < 0.20:
+            #         pol = -1
+            #     else:
+            #         pol = 0
+            #
+            #     return pol
+            #
+            #
+            # dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_s(pol) for pol in
+            #                                                              dic_titles[
+            #                                                                  empresas[i] + '_' + clasificadores[
+            #                                                                      j]]]
             dic_titles[empresas[i] + '_' + clasificadores[j]] = pd.Series(
                 data=dic_titles[empresas[i] + '_' + clasificadores[j]],
                 index=dic_titles[empresas[i] + '_' + clasificadores[j]].index, dtype='float')
@@ -295,21 +296,21 @@ for i in range(len(empresas)):
                                                                                  j]]]
 
 
-            def sentimiento_lm(polaridad):
-                if polaridad > 0:
-                    pol = 1
-                elif polaridad < 0:
-                    pol = -1
-                else:
-                    pol = 0
+            # def sentimiento_lm(polaridad):
+            #     if polaridad > 0:
+            #         pol = 1
+            #     elif polaridad < 0:
+            #         pol = -1
+            #     else:
+            #         pol = 0
+            #
+            #     return pol
 
-                return pol
 
-
-            dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_lm(new) for new in
-                                                                       dic_titles[
-                                                                           empresas[i] + '_' + clasificadores[
-                                                                               j]]]
+            # dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_lm(new) for new in
+            #                                                            dic_titles[
+            #                                                                empresas[i] + '_' + clasificadores[
+            #                                                                    j]]]
 
 
             dic_titles[empresas[i] + '_' + clasificadores[j]] = pd.Series(
@@ -327,6 +328,7 @@ for i in range(len(empresas)):
 
 
 
+## INSTANCIA DE NOTICIAS COMPLETAS (CUERPO + TITULO)
 
 
 noticias_writer_completo = pd.ExcelWriter('noticias larepublica_completo.xlsx', engine='xlsxwriter')
@@ -454,26 +456,26 @@ for i in range(len(empresas)):
                                                                        sentences_polarities]
 
 
-            def sentimiento_t(polaridad):
-                if polaridad > 0.1:
-                    sen = 1
-                elif polaridad < -0.05:
-                    sen = -1
-                else:
-                    sen = 0
-
-                return sen
-
-
-            dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_t(new) for new in
-                                                                       dic_news[
-                                                                           empresas[i] + '_' + clasificadores[
-                                                                               j]]]
+            # def sentimiento_t(polaridad):
+            #     if polaridad > 0.1:
+            #         sen = 1
+            #     elif polaridad < -0.05:
+            #         sen = -1
+            #     else:
+            #         sen = 0
+            #
+            #     return sen
+            #
+            #
+            # dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_t(new) for new in
+            #                                                            dic_news[
+            #                                                                empresas[i] + '_' + clasificadores[
+            #                                                                    j]]]
             dic_news[empresas[i] + '_' + clasificadores[j]] = pd.Series(
                 data=dic_news[empresas[i] + '_' + clasificadores[j]],
                 index=dic_news[empresas[i] + '_' + clasificadores[j]].index, dtype='float')
             dic_news[empresas[i] + '_' + clasificadores[j]] = dic_news[
-                empresas[i] + '_' + clasificadores[j]].groupby(level=0).sum()
+                empresas[i] + '_' + clasificadores[j]].groupby(level=0).mean()
 
         elif j == 1:
 
@@ -511,27 +513,28 @@ for i in range(len(empresas)):
             dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [vader_modify(par) for par in
                                                                        polaridad_vader]
 
+            #
+            # def sentimiento_v(polaridad):
+            #     if polaridad > 0.05:
+            #         pol = 1
+            #     elif polaridad < -0.05:
+            #         pol = -1
+            #     else:
+            #         pol = 0
+            #
+            #     return pol
 
-            def sentimiento_v(polaridad):
-                if polaridad > 0.05:
-                    pol = 1
-                elif polaridad < -0.05:
-                    pol = -1
-                else:
-                    pol = 0
+            #
+            # dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_v(pol) for pol in
+            #                                                            dic_news[
+            #                                                                empresas[i] + '_' + clasificadores[
+            #                                                                    j]]]
 
-                return pol
-
-
-            dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_v(pol) for pol in
-                                                                       dic_news[
-                                                                           empresas[i] + '_' + clasificadores[
-                                                                               j]]]
             dic_news[empresas[i] + '_' + clasificadores[j]] = pd.Series(
                 data=dic_news[empresas[i] + '_' + clasificadores[j]],
                 index=dic_news[empresas[i] + '_' + clasificadores[j]].index, dtype='float')
             dic_news[empresas[i] + '_' + clasificadores[j]] = dic_news[
-                empresas[i] + '_' + clasificadores[j]].groupby(level=0).sum()
+                empresas[i] + '_' + clasificadores[j]].groupby(level=0).mean()
 
         elif j == 2:
 
@@ -588,26 +591,26 @@ for i in range(len(empresas)):
                 dic_news[empresas[i] + '_' + clasificadores[j]]]
 
 
-            def sentimiento_s(polaridad):
-                if polaridad > 0.35:
-                    pol = 1
-                elif polaridad < 0.30:
-                    pol = -1
-                else:
-                    pol = 0
-
-                return pol
-
-
-            dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_s(pol) for pol in
-                                                                       dic_news[
-                                                                           empresas[i] + '_' + clasificadores[
-                                                                               j]]]
+            # def sentimiento_s(polaridad):
+            #     if polaridad > 0.35:
+            #         pol = 1
+            #     elif polaridad < 0.30:
+            #         pol = -1
+            #     else:
+            #         pol = 0
+            #
+            #     return pol
+            #
+            #
+            # dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_s(pol) for pol in
+            #                                                            dic_news[
+            #                                                                empresas[i] + '_' + clasificadores[
+            #                                                                    j]]]
             dic_news[empresas[i] + '_' + clasificadores[j]] = pd.Series(
                 data=dic_news[empresas[i] + '_' + clasificadores[j]],
                 index=dic_news[empresas[i] + '_' + clasificadores[j]].index, dtype='float')
             dic_news[empresas[i] + '_' + clasificadores[j]] = dic_news[
-                empresas[i] + '_' + clasificadores[j]].groupby(level=0).sum()
+                empresas[i] + '_' + clasificadores[j]].groupby(level=0).mean()
 
         elif j == 3:
             def lm(dic_pos, dic_neg):
@@ -653,28 +656,28 @@ for i in range(len(empresas)):
                                                                            empresas[i] + '_' + clasificadores[
                                                                                j]]]
 
-
-            def sentimiento_lm(polaridad):
-                if polaridad > 0:
-                    pol = 1
-                elif polaridad < 0:
-                    pol = -1
-                else:
-                    pol = 0
-
-                return pol
-
-
-            dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_lm(new) for new in
-                                                                       dic_news[
-                                                                           empresas[i] + '_' + clasificadores[
-                                                                               j]]]
+            #
+            # def sentimiento_lm(polaridad):
+            #     if polaridad > 0:
+            #         pol = 1
+            #     elif polaridad < 0:
+            #         pol = -1
+            #     else:
+            #         pol = 0
+            #
+            #     return pol
+            #
+            #
+            # dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = [sentimiento_lm(new) for new in
+            #                                                            dic_news[
+            #                                                                empresas[i] + '_' + clasificadores[
+            #                                                                    j]]]
 
             dic_news[empresas[i] + '_' + clasificadores[j]] = pd.Series(
                 data=dic_news[empresas[i] + '_' + clasificadores[j]],
                 index=dic_news[empresas[i] + '_' + clasificadores[j]].index, dtype='float')
             dic_news[empresas[i] + '_' + clasificadores[j]] = dic_news[
-                empresas[i] + '_' + clasificadores[j]].groupby(level=0).sum()
+                empresas[i] + '_' + clasificadores[j]].groupby(level=0).mean()
 
             # elif j == 4:
             #     dic_news[empresas[i] + '_' + clasificadores[j]].iloc[:] = 0
@@ -699,17 +702,25 @@ for i in range(len(empresas)):
 
 dic_df_sentimientos = {'df_ecopetrol_completo': pd.DataFrame({'sentimiento_textblob':dic_news['ecopetrol_sentimiento_textblob'].iloc[:], 'sentimiento_vader': dic_news['ecopetrol_sentimiento_vader'].values, 'sentimiento_senticnet': dic_news['ecopetrol_sentimiento_senticnet'].values, 'sentimiento_lm':dic_news['ecopetrol_sentimiento_lm'].values}),
                        'df_bancolombia_completo': pd.DataFrame({'sentimiento_textblob':dic_news['bancolombia_sentimiento_textblob'], 'sentimiento_vader': dic_news['bancolombia_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_news['bancolombia_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_news['bancolombia_sentimiento_lm'].iloc[:]}),
-                       'df_colcap_completo': pd.DataFrame({'sentimiento_textblob':dic_news['colcap_sentimiento_textblob'], 'sentimiento_vader': dic_news['colcap_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_news['colcap_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_news['colcap_sentimiento_lm'].iloc[:]}),
+                       'df_icolcap_completo': pd.DataFrame({'sentimiento_textblob':dic_news['colcap_sentimiento_textblob'], 'sentimiento_vader': dic_news['colcap_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_news['colcap_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_news['colcap_sentimiento_lm'].iloc[:]}),
                        'df_ecopetrol_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['ecopetrol_sentimiento_textblob'], 'sentimiento_vader': dic_titles['ecopetrol_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['ecopetrol_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['ecopetrol_sentimiento_lm'].iloc[:]}),
                        'df_bancolombia_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['bancolombia_sentimiento_textblob'], 'sentimiento_vader': dic_titles['bancolombia_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['bancolombia_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['bancolombia_sentimiento_lm'].iloc[:]}),
-                       'df_colcap_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['colcap_sentimiento_textblob'], 'sentimiento_vader': dic_titles['colcap_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['colcap_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['colcap_sentimiento_lm'].iloc[:]})}
+                       'df_icolcap_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['colcap_sentimiento_textblob'], 'sentimiento_vader': dic_titles['colcap_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['colcap_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['colcap_sentimiento_lm'].iloc[:]})}
+
+with open('pickle_sentimientos.pkl', 'wb') as file:
+    pickle.dump(dic_df_sentimientos, file)
+dic = 0
+with open('pickle_sentimientos.pkl', 'rb') as file:
+    dic = pickle.load(file)
 
 empresas = ['ecopetrol', 'bancolombia', 'colcap']
 clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet', 'sentimiento_lm']
 sheets_financial = ['Ecopetrol OHLCV+indicadores', 'Bancolombia OHLCV+indicadores', 'Icolcap OHLCV+indicadores']
 
 time = pd.date_range('2013-01-01', '2019-12-31', freq='D')
+
 df_time = pd.DataFrame(index=time)
+
 dic_financiero = {}
 dic_financiero_copy = {}
 dic_financiero_titulo = {}
@@ -737,51 +748,51 @@ for instancia in instancia_estudio:
         dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'].merge(dic_df_sentimientos['df_'+empresas[i]+tipo_de_instancia], left_index=True, right_index=True, how='left')
 
 
-        def sentimientos_finales(*series):
-            clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet',
-                              'sentimiento_lm']
-            df_sentimientos = pd.DataFrame(dtype='float')
-
-            for j, serie in enumerate(series):
-                serie = serie.fillna(0)
-                serie_test = serie.copy()
-                i = 0
-
-                for index, row in serie.iteritems():
-                    try:
-
-                        if i == 0:
-                            serie_test.iloc[i] = row
-                            i += 1
-                        else:
-                            serie_test.iloc[i] = serie.iloc[i - 1] * 0.25 + row * 0.75
-
-
-                            i += 1
-                            if -0.05 < serie_test.iloc[i - 1] < 0.05:
-                                serie_test.iloc[i] = 0
-
-                    except IndexError:
-                        pass
-                df_sentimientos[clasificadores[j]] = serie_test
-
-            def escalar(x):
-                if x > 0:
-                    x = 1
-                elif x < 0:
-                    x = -1
-                else:
-                    x = 0
-                return x
-
-            for i in range(len(df_sentimientos.columns)):
-                df_sentimientos[clasificadores[i]] = list(map(escalar, df_sentimientos.iloc[:, i]))
-
-            return df_sentimientos
-
-
-
-        dic_financiero_copy[empresas[i] + '_df'] = pd.concat([dic_financiero_copy[empresas[i] + '_df'], sentimientos_finales(dic_financiero_copy[empresas[i] + '_df'][clasificadores[0]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[1]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[2]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[3]])], axis=1)
+        # def sentimientos_finales(*series):
+        #     clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet',
+        #                       'sentimiento_lm']
+        #     df_sentimientos = pd.DataFrame(dtype='float')
+        #
+        #     for j, serie in enumerate(series):
+        #         serie = serie.fillna(0)
+        #         serie_test = serie.copy()
+        #         i = 0
+        #
+        #         for index, row in serie.iteritems():
+        #             try:
+        #
+        #                 if i == 0:
+        #                     serie_test.iloc[i] = row
+        #                     i += 1
+        #                 else:
+        #                     serie_test.iloc[i] = serie.iloc[i - 1] * 0.25 + row * 0.75
+        #
+        #
+        #                     i += 1
+        #                     if -0.05 < serie_test.iloc[i - 1] < 0.05:
+        #                         serie_test.iloc[i] = 0
+        #
+        #             except IndexError:
+        #                 pass
+        #         df_sentimientos[clasificadores[j]] = serie_test
+        #
+        #     def escalar(x):
+        #         if x > 0:
+        #             x = 1
+        #         elif x < 0:
+        #             x = -1
+        #         else:
+        #             x = 0
+        #         return x
+        #
+        #     for i in range(len(df_sentimientos.columns)):
+        #         df_sentimientos[clasificadores[i]] = list(map(escalar, df_sentimientos.iloc[:, i]))
+        #
+        #     return df_sentimientos
+        #
+        #
+        #
+        # dic_financiero_copy[empresas[i] + '_df'] = pd.concat([dic_financiero_copy[empresas[i] + '_df'], sentimientos_finales(dic_financiero_copy[empresas[i] + '_df'][clasificadores[0]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[1]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[2]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[3]])], axis=1)
         dic_financiero[empresas[i] + '_df'] = pd.concat([dic_financiero[empresas[i] + '_df'], dic_financiero_copy[empresas[i] + '_df'].iloc[:,[13,14,15,16]]], axis=1)
         dic_financiero_copy[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
 

@@ -15,64 +15,254 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score, roc_auc_score
 from sklearn.model_selection import GridSearchCV
+
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import pickle
+import datetime as dt
 sns.set(style="white")
-sns.set(style="whitegrid", color_codes=True)
+# sns.set(style="whitegrid", color_codes=True)
+
+with open('pickle_sentimientos.pkl', 'rb') as file:
+    dic_stock_sentiments = pickle.load(file)
+
+##### CONCATENACIÓN DATAFRAMES SENTIMIENTOS Y FINANCIEROS
 
 
-
-empresas = ['ecopetrol', 'bancolombia', 'colcap']
+empresas = ['Ecopetrol', 'Bancolombia', 'Icolcap']
 clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet', 'sentimiento_lm',
                   'sentimiento_aleatorio']
 sheets_financial = ['Ecopetrol OHLCV+indicadores', 'Bancolombia OHLCV+indicadores', 'Icolcap OHLCV+indicadores']
 
+
 time = pd.date_range('2013-01-01', '2019-12-31', freq='D')
+
 df_time = pd.DataFrame(index=time)
-dic_financiero = {}
-dic_financiero_copy = {}
-dic_financiero_titulo = {}
-dic_financiero_completo = {}
-instancia_estudio = ['_titulo','_completo']
-prediction_process_variables = {}
 
 
-df_stock = pd.read_excel('OHLCV+indicadores.xlsx', sheet_name=sheets_financial[2], index_col=0)
-# df_stock = pd.read_csv("dic_financiero_completo['ecopetrol_df'].csv", index_col=0)
+instancia_estudio = ['_completo','_titulo'] # los clasificadores para cada instancia tienen una x (completo) y una y (titulo) al final del string
 
-df_stock.insert(loc=8, column='retorno', value=0)
-df_stock['retorno'] = df_stock['close'] - df_stock['close'].shift()
+dic_df_stock_final = {}
+dic_df_stock_final_copy ={}
+dic_df_stock_final_copy2 ={}
+
+for i in range(len(empresas)):
+
+    dic_df_stock_final[empresas[i]] = df_time.merge(pd.read_excel('OHLCV+indicadores.xlsx', index_col=0, sheet_name=f'{empresas[i]} OHLCV+indicadores'), right_index=True, left_index=True, how='left')
+    dic_df_stock_final[empresas[i]] = dic_df_stock_final[empresas[i]].merge(dic_stock_sentiments[f'df_{empresas[i].lower()}_completo'], right_index=True, left_index=True, how='left')
+    dic_df_stock_final[empresas[i]] = dic_df_stock_final[empresas[i]].merge(dic_stock_sentiments[f'df_{empresas[i].lower()}_titulo'], right_index=True, left_index=True, how='left')
+    dic_df_stock_final[empresas[i]].insert(loc=0, column='days_of_week', value= dic_df_stock_final[empresas[i]].index.to_series().dt.dayofweek)
+    # dic_df_stock_final[empresas[i]] = dic_df_stock_final[empresas[i]].reset_index()
+    # dic_df_stock_final[empresas[i]] = dic_df_stock_final[empresas[i]].set_index(['index','days_of_week'])
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final[empresas[i]].copy()
+    dic_df_stock_final_copy2[empresas[i]] = dic_df_stock_final[empresas[i]][(dic_df_stock_final[empresas[i]].iloc[:,0]== 0)| (dic_df_stock_final[empresas[i]].iloc[:,0] == 5) |(dic_df_stock_final[empresas[i]].iloc[:,0] == 6)]
+    dic_df_stock_final_copy2[empresas[i]] = dic_df_stock_final_copy2[empresas[i]].iloc[:, 14:22].fillna(0)
+    j = 0
+    lista_sentimiento_lunes = []
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]].reset_index()
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]].set_index('days_of_week')
+    for idx in range(0, 1095, 3):
+        if dic_df_stock_final_copy2[empresas[i]].iloc[idx, :].sum() == 0:
+            j += 1
+        if dic_df_stock_final_copy2[empresas[i]].iloc[idx + 1, :].sum() == 0:
+            j += 1
+        if dic_df_stock_final_copy2[empresas[i]].iloc[idx + 2, :].sum() == 0:
+            j += 1
+        if j == 3:
+            lista_sentimiento_lunes.append(dic_df_stock_final_copy2[empresas[i]].iloc[idx, :] + dic_df_stock_final_copy2[empresas[i]].iloc[idx + 1, :] + dic_df_stock_final_copy2[empresas[i]].iloc[idx + 2, :])
+            j = 0
+            continue
+        lista_sentimiento_lunes.append((dic_df_stock_final_copy2[empresas[i]].iloc[idx, :] + dic_df_stock_final_copy2[empresas[i]].iloc[idx + 1, :] + dic_df_stock_final_copy2[empresas[i]].iloc[idx + 2, :]) / (3 - j))
+        j = 0
+    k = 0
+    fila = list(range(6,2556, 7))
+
+    for index, row in dic_df_stock_final_copy[empresas[i]].iterrows():
+        if index == 0:
+            dic_df_stock_final_copy[empresas[i]].iloc[fila[k], 14:22] = lista_sentimiento_lunes[k].values
+            k += 1
+        else:
+            continue
+
+    dic_df_stock_final_copy[empresas[i]].iloc[:, 14:22] = dic_df_stock_final_copy[empresas[i]].iloc[:, 14:22].fillna(0)
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]].dropna()
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]].reset_index()
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]].set_index('index')
+    dic_df_stock_final_copy[empresas[i]] = dic_df_stock_final_copy[empresas[i]][dic_df_stock_final_copy[empresas[i]]['retorno'] != 0]
+    dic_df_stock_final[empresas[i]] = dic_df_stock_final_copy[empresas[i]].copy()
+    dic_df_stock_final[empresas[i]]['retorno_fijo'] = dic_df_stock_final[empresas[i]]['retorno'].copy()
+    dic_df_stock_final[empresas[i]]['direccion'] = dic_df_stock_final[empresas[i]]['retorno'].apply(lambda x: 1 if x>0 else 0)
+    dic_df_stock_final[empresas[i]] = dic_df_stock_final[empresas[i]].reindex(columns=['days_of_week', 'open', 'high', 'low', 'close', 'volume', 'rsi',
+       'williams %R', 'mfi', 'macd(12-26)',
+       'atr(14)','adx(14)', 'sentimiento_textblob_x',
+       'sentimiento_vader_x', 'sentimiento_senticnet_x', 'sentimiento_lm_x',
+       'sentimiento_textblob_y', 'sentimiento_vader_y',
+       'sentimiento_senticnet_y', 'sentimiento_lm_y','retorno','retorno_fijo', 'retorno clases','direccion'])
+
+writer = pd.ExcelWriter('OHLCV+indicadores+sentimientos.xlsx', engine='xlsxwriter')
+for i in range(3):
+    dic_df_stock_final[empresas[i]].to_excel(writer, sheet_name=empresas[i])
+
+writer.close()
+
+# with open('dic_dfs_financiero_y_sentimientos.pkl', 'wb') as file:
+#     pickle.dump(dic_df_stock_final, file)
+
+### REGRESIÓN LOGISTICA
+laged = {'Ecopetrol':{},'Bancolombia':{},'Icolcap' :{}}
+ventana_tiempo = [0,1,2,5,7,10]
+dic_df_stock_final_scaled_std = {}
+dic_extenso_lg = {'Ecopetrol':{'df':dic_df_stock_final['Ecopetrol']}, 'Bancolombia':{'df':dic_df_stock_final['Bancolombia']},'Icolcap' :{'df':dic_df_stock_final['Icolcap']} }
+for i in range(len(empresas)):
+
+    for ventana  in ventana_tiempo:
+
+        ## ESTANDARIZACIÓN FEATURES
+
+        scaler_std = StandardScaler()
+
+        dic_df_stock_final_scaled_std[empresas[i]] = dic_df_stock_final[empresas[i]].copy()
+        dic_df_stock_final_scaled_std[empresas[i]].iloc[:, 1:25] = scaler_std.fit_transform(dic_df_stock_final_scaled_std[empresas[i]].iloc[:, 1:25])
+
+        # ### CORRELACIÓN ENTRE VARIABLES (DEPENDIENTES E INDEPENDIENTE)
+        #
+        # dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'] = dic_df_stock_final_scaled_std[empresas[i]]
+        # dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'].iloc[:,6:24] = dic_df_stock_final_scaled_std[empresas[i]].iloc[:,6:24].shift(ventana)
+        # dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'] = dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'].dropna()
+        # dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'] = dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}'].iloc[:,6:25].corr()
+        # fig = plt.figure()
+        # plt.rcParams["figure.figsize"] = (14,14)
+        # corr = dic_extenso_lg[empresas[i]][f'corr_lag_{ventana}']
+        # sns.heatmap(corr,vmin=-1,
+        #         vmax=1, cmap='coolwarm')
+        # plt.savefig(rf'Graficas regresión logistica\{empresas[i]}\ventana de tiempo {ventana}\corr_lag_{ventana} ')
 
 
-# df_stock['retorno'] = df_stock['retorno'].shift(1)
 
-df_stock = df_stock[df_stock['retorno'] != 0]
-df_stock['retorno_retraso'] = df_stock['retorno'].shift()
-df_stock['retorno_retraso_2'] = df_stock['retorno_retraso'].shift()
-df_stock['retorno_retraso_3'] = df_stock['retorno_retraso_2'].shift()
-df_stock['volume'] = df_stock['volume'] / 1000000000
-# dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['retorno'].apply(lambda  x: 1 if x >0 else 0)
-df_stock.iloc[:, 5:8] = df_stock.iloc[:, 5:8].shift(1)
-# df_stock['volume_dif_1'] = df_stock['volume'] - df_stock['volume'].shift(1)
-#
-# df_stock['hi-lo'] = df_stock['high'] - df_stock['low']
-# df_stock['hi-lo_diff_1'] = df_stock['hi-lo'] - df_stock['hi-lo'].shift(1)
-df_stock['direccion'] = df_stock['retorno'].apply(lambda x: 1 if x > 0 else 0)
-df_stock = df_stock.dropna()
-df_stock_test = df_stock.loc['2019-01-03':'2019-12-30']
-# df_stock_test = df_stock.loc['2015-01-05':'2016-1-04']
-df_stock = df_stock.loc['2013-01-24':'2019-01-02']
-# df_stock = df_stock.loc['2013-01-24':'2015-01-02']
-X = df_stock.iloc[:, [5,6,7]]
-# X = df_stock.iloc[:, [6, 9]]
-y = df_stock.iloc[:, -1]
-X_test = df_stock_test.iloc[:, [5,6,7]]
-# X_test = df_stock_test.iloc[:, [6,9]]
-y_test = df_stock_test.iloc[:, -1]
 
-sm_lg = sm.Logit(y,X)
-result = sm_lg.fit()
-result.summary()
+
+        # ### FEATURE VARIABLES INDICADORES TECNICOS ( TRAIN 0.8, TEST 0.2)
+        #
+        # X = dic_df_stock_final_lag1[empresas[0]].iloc[:1245, [6,7,8,13]]
+        #
+        # y = dic_df_stock_final_lag1[empresas[0]].iloc[:1245, -1]
+        # X_test = dic_df_stock_final_lag1[empresas[0]].iloc[1246:, [6,7,8,13]]
+        #
+        # y_test = dic_df_stock_final_lag1[empresas[0]].iloc[1246:, -1]
+        #
+        # sm_lg = sm.Logit(y,X)
+        # result = sm_lg.fit()
+        # result.summary()
+        #
+        # lg = LogisticRegression()
+        # lg.fit(X,y)
+        # lg_p = lg.predict(X_test)
+        # acc = accuracy_score(y_test, lg_p)
+        # roc_auc = roc_auc_score(y_test, lg_p)
+        #
+        # ### DATOS ESTANDARIZADOS
+        # scaler_std = StandardScaler()
+        # dic_df_stock_final_scaled_std = {}
+        # dic_df_stock_final_scaled_std[empresas[0]] = dic_df_stock_final[empresas[0]].copy()
+        # dic_df_stock_final_scaled_std[empresas[0]].iloc[:,1:23] = scaler_std.fit_transform(dic_df_stock_final_scaled_std[empresas[0]].iloc[:,1:23])
+        #
+        # ### CORRELACIÓN ENTRE VARIABLES ESTANDARIZADAS (DEPENDIENTES E INDEPENDIENTE) REDICCION DÍA T
+        #
+        # dic_corr_std = {}
+        #
+        # dic_corr_std['corr_lag_0_'+empresas[0]] = dic_df_stock_final_scaled_std[empresas[0]].iloc[:,6:23].corr()
+        # f_std, ax_std = plt.subplots(figsize=(14,14))
+        # ax_std = sns.heatmap(dic_corr_std['corr_lag_0_'+empresas[0]], cmap='coolwarm', vmax=1, vmin=-1)
+        # plt.show()
+        #
+        ### SELECCIÓN DE CARACTERÍSTICAS L1 LASSO COEFICIENTE, SELECCIÓN DE CARACTERISTICAS DE FRECUENCIA (ITERACIONES POR FUERZA BRUTA)
+
+        ### LASSO COEFFICIENT REDICCION DÍA T
+
+        # from sklearn.linear_model import LassoCV
+        #
+        #
+        # df = dic_df_stock_final_scaled_std[empresas[i]]
+        # X_df = df.iloc[:,6:24].shift(ventana)
+        # X_df = X_df.dropna()
+        # X = X_df.iloc[:round(X_df.shape[0] * 0.8), :]
+        # y = df.iloc[ventana:round(X_df.shape[0] * 0.8), -1]
+        #
+        # X_test = X_df.iloc[round(X_df.shape[0] * 0.8)+1:,:]
+        # y_test = df.iloc[ventana + round(X_df.shape[0] * 0.8)+2:, -1]
+        #
+        #
+        # lasso = LassoCV().fit(X, y)
+        # importance = np.abs(lasso.coef_)
+        # feature_names = np.array(dic_df_stock_final_scaled_std[empresas[i]].iloc[:, 6:24].columns)
+        # plt.bar(height=importance, x=feature_names)
+        # plt.xticks(rotation='vertical')
+        # plt.title(f"Feature importances via coefficients")
+        #
+        # plt.rcParams["figure.figsize"] = (14, 14)
+        # plt.show()
+        # break
+        # plt.savefig(rf'Graficas regresión logistica\{empresas[i]}\ventana de tiempo {ventana}\Lasso_coef_lag_{ventana} ')
+        #
+        #
+        #
+        #
+        #
+        # ### SELECCIÓN DE CARACTERISTICAS DE FRECUENCIA (ITERACIONES POR FUERZA BRUTA) PREDICCION DÍA T
+        # from sklearn.feature_selection import SequentialFeatureSelector
+        #
+        #
+        # sfs_forward = SequentialFeatureSelector(lasso, n_features_to_select=4,
+        #                                     direction='forward').fit(X, y)
+        #
+        # print("Features selected by forward sequential selection: "
+        #   f"{feature_names[sfs_forward.get_support()]}")
+
+        #
+        # ### PREDICCION DIA t (estandarizado)
+        #
+        # X = dic_df_stock_final_scaled_std[empresas[0]].iloc[:1245, 14:22]
+        #
+        # y = dic_df_stock_final_scaled_std[empresas[0]].iloc[:1245, -1]
+        # X_test = dic_df_stock_final_scaled_std[empresas[0]].iloc[1246:, 14:22]
+        #
+        # y_test = dic_df_stock_final_scaled_std[empresas[0]].iloc[1246:, -1]
+        #
+        # sm_lg_s = sm.Logit(y,X)
+        # result_s = sm_lg_s.fit()
+        # result_s.summary()
+        #
+        # lg_s = LogisticRegression()
+        # lg_s.fit(X,y)
+        # lg_p_s = lg_s.predict(X_test)
+        # acc_s = accuracy_score(y_test, lg_p_s)
+        # roc_auc_s = roc_auc_score(y_test, lg_p_s)
+        #
+        # ### PREDICCION DIA t+1 (estandarizado)
+        # dic_df_stock_final_lag1_s = {}
+        # dic_df_stock_final_lag1_s[empresas[0]] = dic_df_stock_final_scaled_std[empresas[0]].copy()
+        # dic_df_stock_final_lag1_s[empresas[0]].iloc[:,6:23] = dic_df_stock_final_scaled_std[empresas[0]].iloc[:,6:23].shift(1)
+        # dic_df_stock_final_lag1_s[empresas[0]] = dic_df_stock_final_lag1_s[empresas[0]].dropna()
+        #
+        # ### FEATURE VARIABLES INDICADORES TECNICOS ESTANDARIZADOS ( TRAIN 0.8, TEST 0.2)
+        #
+        # X = dic_df_stock_final_lag1_s[empresas[0]].iloc[:1245, [6,7,8,9,10,11,12,13,18,22]]
+        #
+        # y = dic_df_stock_final_lag1_s[empresas[0]].iloc[:1245, -1]
+        # X_test = dic_df_stock_final_lag1_s[empresas[0]].iloc[1246:, [6,7,8,9,10,11,12,13,18,22]]
+        #
+        # y_test = dic_df_stock_final_lag1_s[empresas[0]].iloc[1246:, -1]
+        #
+        # sm_lg_s = sm.Logit(y,X)
+        # result_s = sm_lg_s.fit()
+        # result_s.summary()
+        #
+        # lg_s = LogisticRegression()
+        # lg_s.fit(X,y)
+        # lg_p_s = lg_s.predict(X_test)
+        # acc_s = accuracy_score(y_test, lg_p_s)
+        # roc_auc_s = roc_auc_score(y_test, lg_p_s)
 
 
 # lg = LogisticRegression(C= 0.01, penalty='l2', solver='liblinear')
@@ -156,4 +346,49 @@ for c in C:
 #
 #
 
+from sklearn.linear_model import LassoCV
+# [6,7,8,9,10,13,14,15,16,17,18,19,20,21,22] icolcap  0.5364156102411136
+# [7,8,9,18]
+# [16,17,19]  Ecopetrol 0.47003311258278146
+# [10,16,17] Ecopetrol 0.47553807947019866
+# [6,7,8,9,10,11] icolcap 0.55
 
+df = dic_df_stock_final_scaled_std[empresas[2]].copy()
+df.iloc[:,[6,7,8,9,10]] = df.iloc[:,[6,7,8,9,10]].shift(1)
+df = df.dropna()
+X = df.iloc[:round(df.shape[0] * 0.8),[6,7,8,9,10]]
+y = df.iloc[:round(df.shape[0] * 0.8), -1]
+
+X_test = df.iloc[round(df.shape[0] * 0.8):,[6,7,8,9,10]]
+y_test = df.iloc[round(df.shape[0] * 0.8):, -1]
+
+sm_lg_s = sm.Logit(y,X)
+result_s = sm_lg_s.fit()
+result_s.summary()
+
+lg_s = LogisticRegression()
+lg_s.fit(X,y)
+lg_p_s = lg_s.predict(X_test)
+print(accuracy_score(y_test, lg_p_s), '\n'*2, roc_auc_score(y_test, lg_p_s))
+
+
+
+lasso = LassoCV().fit(X, y)
+importance = np.abs(lasso.coef_)
+
+feature_names = np.array(dic_df_stock_final_scaled_std[empresas[0]].iloc[:, [6,7,8,9,10]].columns)
+plt.bar(height=importance, x=feature_names)
+plt.xticks(rotation='vertical')
+plt.title(f"Feature importances via coefficients")
+
+plt.rcParams["figure.figsize"] = (14, 14)
+plt.show()
+
+from sklearn.feature_selection import SequentialFeatureSelector
+
+
+sfs_forward = SequentialFeatureSelector(lasso, n_features_to_select=5,
+                                    direction='forward').fit(X, y)
+
+print("Features selected by forward sequential selection: "
+  f"{feature_names[sfs_forward.get_support()]}")
