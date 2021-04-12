@@ -123,7 +123,7 @@ for i in range(len(empresas)):
         dic_titles[empresas[i] + '_' + clasificadores[j]] = dic_titles[empresas[i] + ' noticias'].copy()
         if j == 0:
             textblob_obj = [TextBlob(new) for new in dic_titles[empresas[i] + '_' + clasificadores[j]]]
-            polarity_textblob = [textblob_obj[i].sentiment.polarity for i in range(len(textblob_obj))]
+            polarity_textblob = [textblob_obj[i].sentiment.polarity - 0.1 for i in range(len(textblob_obj))]
             dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = polarity_textblob
 
 
@@ -153,7 +153,7 @@ for i in range(len(empresas)):
             dic_titles[empresas[i] + '_' + clasificadores[j]] = dic_titles[empresas[i] + ' noticias'].copy()
             vader_obj = SentimentIntensityAnalyzer()
             dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [
-                vader_obj.polarity_scores(new)['compound'] for new in dic_titles[empresas[i] + ' noticias']]
+                vader_obj.polarity_scores(new)['compound']-0.1 for new in dic_titles[empresas[i] + ' noticias']]
 
 
             # def sentimiento_v(polaridad):
@@ -226,7 +226,7 @@ for i in range(len(empresas)):
                                                                                 j]].iloc[:].apply(
                 lambda x: [word for word in x if word not in stopwords])
             dic_titles[empresas[i] + '_' + clasificadores[j]].iloc[:] = [
-                polarity_senticnet(text_list, senticnet)[0] for text_list in
+                polarity_senticnet(text_list, senticnet)[0]-0.35 for text_list in
                 dic_titles[empresas[i] + '_' + clasificadores[j]]]
 
 
@@ -707,13 +707,9 @@ dic_df_sentimientos = {'df_ecopetrol_completo': pd.DataFrame({'sentimiento_textb
                        'df_bancolombia_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['bancolombia_sentimiento_textblob'], 'sentimiento_vader': dic_titles['bancolombia_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['bancolombia_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['bancolombia_sentimiento_lm'].iloc[:]}),
                        'df_icolcap_titulo': pd.DataFrame({'sentimiento_textblob':dic_titles['colcap_sentimiento_textblob'], 'sentimiento_vader': dic_titles['colcap_sentimiento_vader'].iloc[:], 'sentimiento_senticnet': dic_titles['colcap_sentimiento_senticnet'].iloc[:], 'sentimiento_lm':dic_titles['colcap_sentimiento_lm'].iloc[:]})}
 
-with open('pickle_sentimientos.pkl', 'wb') as file:
-    pickle.dump(dic_df_sentimientos, file)
-dic = 0
-with open('pickle_sentimientos.pkl', 'rb') as file:
-    dic = pickle.load(file)
 
-empresas = ['ecopetrol', 'bancolombia', 'colcap']
+
+empresas = ['ecopetrol', 'bancolombia', 'icolcap']
 clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet', 'sentimiento_lm']
 sheets_financial = ['Ecopetrol OHLCV+indicadores', 'Bancolombia OHLCV+indicadores', 'Icolcap OHLCV+indicadores']
 
@@ -728,156 +724,44 @@ dic_financiero_completo = {}
 instancia_estudio = ['_titulo','_completo']
 
 
-for instancia in instancia_estudio:
+for i in range(len(sheets_financial)):
+    dic_financiero[empresas[i]+ '_df'] = pd.read_excel('OHLCV+indicadores.xlsx', sheet_name=sheets_financial[i], index_col=0)
 
-    tipo_de_instancia = instancia
+    dic_financiero[empresas[i] + '_df'].insert(loc=8, column='retorno', value=0)
+    dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['close'] - dic_financiero[empresas[i] + '_df']['close'].shift(1)
 
+    dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['retorno'].apply(lambda  x: float('NaN') if x == 0 else x)
+    dic_financiero[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].dropna()
+    dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['retorno'].apply(
+        lambda x: 1 if x > 0 else -1)
+    dic_financiero[empresas[i] + '_df'] = df_time.merge(dic_financiero[empresas[i] + '_df'],left_index=True, right_index=True, how='left')
+    dic_financiero_copy[empresas[i] + '_df'] =dic_financiero[empresas[i] + '_df'].copy()
+    dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'].merge(dic_df_sentimientos['df_'+empresas[i]+tipo_de_instancia], left_index=True, right_index=True, how='left')
 
-    for i in range(len(sheets_financial)):
-        dic_financiero[empresas[i]+ '_df'] = pd.read_excel('OHLCV+indicadores.xlsx', sheet_name=sheets_financial[i], index_col=0)
+    #
+    #
 
-        dic_financiero[empresas[i] + '_df'].insert(loc=8, column='retorno', value=0)
-        dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['close'] - dic_financiero[empresas[i] + '_df']['close'].shift(1)
+    dic_financiero[empresas[i] + '_df'] = pd.concat([dic_financiero[empresas[i] + '_df'], dic_financiero_copy[empresas[i] + '_df'].iloc[:,[13,14,15,16]]], axis=1)
+    dic_financiero_copy[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
 
-        dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['retorno'].apply(lambda  x: float('NaN') if x == 0 else x)
-        dic_financiero[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].dropna()
-        dic_financiero[empresas[i] + '_df']['retorno'] = dic_financiero[empresas[i] + '_df']['retorno'].apply(
-            lambda x: 1 if x > 0 else -1)
-        dic_financiero[empresas[i] + '_df'] = df_time.merge(dic_financiero[empresas[i] + '_df'],left_index=True, right_index=True, how='left')
-        dic_financiero_copy[empresas[i] + '_df'] =dic_financiero[empresas[i] + '_df'].copy()
-        dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'].merge(dic_df_sentimientos['df_'+empresas[i]+tipo_de_instancia], left_index=True, right_index=True, how='left')
+    dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'][(dic_financiero_copy[empresas[i] + '_df'].iloc[:,9] != 0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,10] !=0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,11] != 0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,12] != 0)]
+    dic_financiero[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'].dropna().copy()
 
-
-        # def sentimientos_finales(*series):
-        #     clasificadores = ['sentimiento_textblob', 'sentimiento_vader', 'sentimiento_senticnet',
-        #                       'sentimiento_lm']
-        #     df_sentimientos = pd.DataFrame(dtype='float')
-        #
-        #     for j, serie in enumerate(series):
-        #         serie = serie.fillna(0)
-        #         serie_test = serie.copy()
-        #         i = 0
-        #
-        #         for index, row in serie.iteritems():
-        #             try:
-        #
-        #                 if i == 0:
-        #                     serie_test.iloc[i] = row
-        #                     i += 1
-        #                 else:
-        #                     serie_test.iloc[i] = serie.iloc[i - 1] * 0.25 + row * 0.75
-        #
-        #
-        #                     i += 1
-        #                     if -0.05 < serie_test.iloc[i - 1] < 0.05:
-        #                         serie_test.iloc[i] = 0
-        #
-        #             except IndexError:
-        #                 pass
-        #         df_sentimientos[clasificadores[j]] = serie_test
-        #
-        #     def escalar(x):
-        #         if x > 0:
-        #             x = 1
-        #         elif x < 0:
-        #             x = -1
-        #         else:
-        #             x = 0
-        #         return x
-        #
-        #     for i in range(len(df_sentimientos.columns)):
-        #         df_sentimientos[clasificadores[i]] = list(map(escalar, df_sentimientos.iloc[:, i]))
-        #
-        #     return df_sentimientos
-        #
-        #
-        #
-        # dic_financiero_copy[empresas[i] + '_df'] = pd.concat([dic_financiero_copy[empresas[i] + '_df'], sentimientos_finales(dic_financiero_copy[empresas[i] + '_df'][clasificadores[0]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[1]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[2]],dic_financiero_copy[empresas[i] + '_df'][clasificadores[3]])], axis=1)
-        dic_financiero[empresas[i] + '_df'] = pd.concat([dic_financiero[empresas[i] + '_df'], dic_financiero_copy[empresas[i] + '_df'].iloc[:,[13,14,15,16]]], axis=1)
-        dic_financiero_copy[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
-
-        # dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'][np.isnan(dic_financiero_copy[empresas[i] + '_df'].retorno) == 0]
-        dic_financiero_copy[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'][(dic_financiero_copy[empresas[i] + '_df'].iloc[:,9] != 0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,10] !=0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,11] != 0) | (dic_financiero_copy[empresas[i] + '_df'].iloc[:,12] != 0)]
-        dic_financiero[empresas[i] + '_df'] = dic_financiero_copy[empresas[i] + '_df'].dropna().copy()
-        # dic_financiero[empresas[i] + '_df']= dic_financiero[empresas[i] + '_df'].loc['2016-03-01':'2019-12-31']
-        for j in range(len(clasificadores)):
-            dic_financiero[empresas[i] + '_df'][clasificadores[j]] = dic_financiero[empresas[i] + '_df'][clasificadores[j]].apply(
-                lambda x: float('NaN') if x == 0 else x)
-
-        if instancia == '_titulo':
-            dic_financiero_titulo[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
-        elif instancia == '_completo':
-            dic_financiero_completo[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
-
-
-
-# Metricas generales
-dic_metrics_completo = {}
-dic_metrics_titulo = {}
-dic_metrics = {}
-for instancia in instancia_estudio:
-    if instancia == '_titulo':
-        dic_financiero = dic_financiero_titulo
-    elif instancia == '_completo':
-        dic_financiero = dic_financiero_completo
-    for i in range(len(empresas)):
-
-        for j in range(len(clasificadores)):
-            dummy = dic_financiero[empresas[i]+'_df'].loc[:,['retorno', clasificadores[j]]].dropna()
-
-            dic_metrics['confusion_matrix_' + empresas[i]+'_'+clasificadores[j]] = confusion_matrix(dummy.retorno,dummy[clasificadores[j]])
-            dic_metrics['classification_report_'+empresas[i]+'_'+clasificadores[j]] = classification_report(dummy.retorno,dummy[clasificadores[j]], output_dict=True)
-            if instancia == '_titulo':
-                dic_metrics_titulo['confusion_matrix_' + empresas[i]+'_'+clasificadores[j]] = dic_metrics['confusion_matrix_' + empresas[i]+'_'+clasificadores[j]]
-                dic_metrics_titulo['classification_report_' + empresas[i] + '_' + clasificadores[j]] = dic_metrics['classification_report_'+empresas[i]+'_'+clasificadores[j]]
-            elif instancia == '_completo':
-                dic_metrics_completo['confusion_matrix_' + empresas[i] + '_' + clasificadores[j]] = dic_metrics['confusion_matrix_' + empresas[i] + '_' + clasificadores[j]]
-                dic_metrics_completo['classification_report_' + empresas[i] + '_' + clasificadores[j]] = dic_metrics['classification_report_'+empresas[i]+'_'+clasificadores[j]]
-
-pd.set_option('display.max_rows', 1000)
-pd.set_option('display.max_columns',
-              1000)  # Setup para ampliar visualización de datos (en este caso DataFrame) en el IDE
-pd.set_option('display.width', 1000)
-df_metricas = pd.read_excel('df_metricas.xlsx', index_col=[0,1], header =[0,1])
-
-
-
-print(df_metricas.iloc[[0,1],:])
-
-
-df_metricas = df_metricas.T
-
-k = 0
-estudio_instancias= ['_completo', '_titulo']
-
-for instancia in estudio_instancias:
+    for j in range(len(clasificadores)):
+        dic_financiero[empresas[i] + '_df'][clasificadores[j]] = dic_financiero[empresas[i] + '_df'][clasificadores[j]].apply(
+            lambda x: float('NaN') if x == 0 else x)
 
     if instancia == '_titulo':
-        dic_metrics = dic_metrics_titulo
+        dic_financiero_titulo[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
     elif instancia == '_completo':
-        dic_metrics = dic_metrics_completo
-    for i in range(len(empresas)):
+        dic_financiero_completo[empresas[i] + '_df'] = dic_financiero[empresas[i] + '_df'].copy()
 
-        for j in range(len(clasificadores)):
-
-            df_metricas.iloc[0,k] = dic_metrics['classification_report_'+empresas[i]+'_'+clasificadores[j]]['accuracy']
-            df_metricas.iloc[1, k] = dic_metrics['classification_report_' + empresas[i] + '_' + clasificadores[j]][
-                '1.0']['precision']
-            df_metricas.iloc[2, k] = dic_metrics['classification_report_' + empresas[i] + '_' + clasificadores[j]][
-                '-1.0']['precision']
-            df_metricas.iloc[3, k] = dic_metrics['classification_report_' + empresas[i] + '_' + clasificadores[j]][
-                '1.0']['recall']
-            df_metricas.iloc[4, k] = dic_metrics['classification_report_' + empresas[i] + '_' + clasificadores[j]][
-                '-1.0']['recall']
-            df_metricas.iloc[5, k] = dic_metrics['classification_report_' + empresas[i] + '_' + clasificadores[j]][
-                'weighted avg']['f1-score']
-
-            k+=1
+with open('dic_financiero_completo.pkl', 'wb') as file:
+    pickle.dump(dic_financiero_completo, file)
+with open('dic_financiero_titulo.pkl', 'wb') as file:
+    pickle.dump(dic_financiero_titulo, file)
 
 
-df_metricas = df_metricas.T
-
-df_metricas.to_excel('metricas_clasificadores.xlsx', sheet_name='Sheet2')
 
 
 
